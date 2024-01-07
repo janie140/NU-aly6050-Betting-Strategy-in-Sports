@@ -1,0 +1,337 @@
+---
+title: "ALY6050_MOD1Project_Tran"
+format: html
+---
+
+# **Project: Analysis of a Betting Strategy in Sports**
+
+**\# Problem:**
+
+Suppose that Boston Bruins and New York Rangers (two National Hockey League Teams) are scheduled to play a best of three series. The winner of the series will be the first team that wins two of the three games. The probability that the Bruins win a game at the Boston Garden is 0.56 and the probability that the Rangers win at Madison Square Garden is 0.52. If the Bruins win a game, you win \$520. If the Bruins lose a game, you lose \$560. In parts 1-3 below, assume that the outcomes of the games are independent of each other.
+
+## #Part 1:
+
+Consider the series where the games are played in Boston, New York, and then Boston (if necessary). Complete in R or Excel and report on each step below.
+
+\(i\)  Calculate the probability that the Bruins will win the series.
+
+```{r}
+# Winning probabilities for the Bruins and Rangers at their homes
+p_bruins_win_boston <- 0.56
+p_rangers_win_ny <- 0.52
+
+# The Bruins can win the series in the following outcomes
+## O1: W-W-
+## O2: W-L-W
+## O3: L-W-W
+
+# Series: Boston - NY - Boston
+
+# Probability that the Bruins will win the series: when O1 or O2 or O3 occurs
+p1 <- p_bruins_win_boston*(1 - p_rangers_win_ny)
+p2 <- p_bruins_win_boston*p_rangers_win_ny* p_bruins_win_boston
+p3 <- (1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)* p_bruins_win_boston
+
+p_bruins_win_series <- p1 + p2 + p3
+
+p_bruins_win_series
+```
+
+\(ii\)  Construct the theoretical probability distribution for your net winnings in dollars (X) for the series. From this theoretical calculation you should also compute and record the expected value of the net winnings (the mean of X) and the theoretical standard deviation of X.
+
+```{r}
+# Winning/losing money for the Bruins
+bruins_win <- 520
+bruins_lose <- -560
+
+# Total outcomes of series (in Bruins side)
+## O1: W-W-
+## O2: W-L-W
+## O3: L-W-W
+## O4: W-L-L
+## O5: L-W-L
+## O6: L-L-
+
+p4 <- p_bruins_win_boston*p_rangers_win_ny*(1 - p_bruins_win_boston)
+p5 <- (1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)*(1 - p_bruins_win_boston)
+p6 <- (1 - p_bruins_win_boston)*p_rangers_win_ny
+
+# Net winnings outcomes
+net_winnings <- c(bruins_win*2, bruins_win*2 + bruins_lose, bruins_win + bruins_lose*2, bruins_lose*2)
+
+# Probabilities of each Net winnings outcome
+p_outcomes <- c(p1, p2 + p3, p4 + p5, p6)
+
+# Theoretical probability distribution
+theoretical_dist <- data.frame(Net_Winnings = net_winnings, Probability = p_outcomes)
+
+# Expected value of net winnings
+expected_value <- sum(net_winnings * p_outcomes)
+
+# Theoretical standard deviation of net winnings
+theoretical_sd <- sqrt(sum((net_winnings - expected_value)^2 * p_outcomes))
+
+theoretical_dist
+expected_value
+theoretical_sd
+```
+
+\(iii\)  Create a simulation of 10,000 different 3 game series by using R to create 10,000 random values for X. Let these random values be denoted Y. Each Y value denotes an outcome of the series as defined by the probability distribution. These 10,000 outcomes represent a statistical sample of possible outcomes. Use this sample of outcomes to estimate the expected net win by using a 95% confidence interval. Does this confidence interval contain the theoretical E(X)?
+
+```{r}
+library(pacman)
+p_load(tidyverse)
+
+set.seed(123)
+
+# Set the number of simulations
+num_simulations <- 10000
+
+# Empty vector to store simulated net winnings
+simulated_net_winnings <- numeric(num_simulations)
+
+# Perform the simulation
+for (i in 1:num_simulations) {
+  # Generate a random outcome according to the probability distribution
+  outcome <- sample(net_winnings, size = 1, prob = p_outcomes, replace = TRUE)
+  simulated_net_winnings[i] <- outcome
+}
+
+simulated_df <- data.frame(Net_Winnings = as.numeric(simulated_net_winnings))
+
+# Calculate the frequency of each simulated outcome
+freq_y <- simulated_df |> group_by(Net_Winnings) |> summarise(count = n())
+
+# Calculate the probability of each outcome
+freq_y <- freq_y |> mutate(prob_y = count/sum(count))
+
+# Probability distribution of simulation sample
+freq_y <- freq_y |> mutate(Net_Winnings = sort(Net_Winnings, decreasing = TRUE))
+
+# Expected net win of the simulated outcomes
+expected_value_s <- sum(freq_y$Net_Winnings * freq_y$prob_y)
+
+expected_value_s
+
+# Set the significance level
+alpha <- 0.05
+
+# Calculate the sample size
+sample_size <- length(simulated_net_winnings)
+
+# Calculate the sample mean
+sample_mean <- mean(simulated_net_winnings)
+
+# Calculate the sample standard deviation
+sample_sd <- sd(simulated_net_winnings)
+
+# Calculate the standard error
+standard_error <- sample_sd / sqrt(sample_size)
+
+# Calculate the margin of error
+margin_of_error <- qt(1 - alpha / 2, df = sample_size - 1) * standard_error
+
+# Calculate the lower and upper bounds of the confidence interval
+lower_bound <- sample_mean - margin_of_error
+upper_bound <- sample_mean + margin_of_error
+
+# Check if the theoretical expected value is within the confidence interval
+is_theoretical_in_interval <- expected_value >= lower_bound && expected_value <= upper_bound
+
+# Print the confidence interval and the result
+cat("95% Confidence Interval:", lower_bound, "to", upper_bound, "\n")
+cat("Does the confidence interval contain the theoretical E(X)?", is_theoretical_in_interval)
+
+
+```
+
+(iv) Construct a frequency distribution for Y. Use the Chi-squared goodness of fit test to verify how closely the distribution of Y has estimated the distribution of X.
+
+```{r}
+# run chi-squared goodness of fit test
+results <- chisq.test(x = freq_y$count, p = p_outcomes)
+
+# print out p-value
+writeLines(paste('\nchi squared goodness of fit p-value:', results$p.value))
+```
+
+\(v\) Use your observations of parts (ii) and (iii) above to describe whether your betting strategy is favorable to you. Write a summary of your observations and analyses in the Word document.
+
+=\> Favorable
+
+## #Part 2:
+
+Repeat part 1 above but assume that the first game is played in New York, the second game is played in Boston, and the third game (if it becomes necessary) is in New York. (i)  Calculate the probability that the Bruins will win the series.
+
+```{r}
+# The Bruins can win the series in the following outcomes
+## O1: W-W-
+## O2: W-L-W
+## O3: L-W-W
+
+# Series: NY - Boston - NY
+
+# Probability that the Bruins will win the series: when O1 or O2 or O3 occurs
+p1 <- (1 - p_rangers_win_ny)*p_bruins_win_boston
+p2 <- (1 - p_rangers_win_ny)*(1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)
+p3 <- p_rangers_win_ny*p_bruins_win_boston*(1 - p_rangers_win_ny)
+
+p_bruins_win_series <- p1 + p2 + p3
+
+p_bruins_win_series
+```
+
+\(ii\)  Construct the theoretical probability distribution for your net winnings in dollars (X) for the series. From this theoretical calculation you should also compute and record the expected value of the net winnings (the mean of X) and the theoretical standard deviation of X.
+
+```{r}
+# Total outcomes of series (in Bruins side)
+## O1: W-W-
+## O2: W-L-W
+## O3: L-W-W
+## O4: W-L-L
+## O5: L-W-L
+## O6: L-L-
+
+p4 <- (1 - p_rangers_win_ny)*(1 - p_bruins_win_boston)*p_rangers_win_ny
+p5 <- p_rangers_win_ny*p_bruins_win_boston*p_rangers_win_ny
+p6 <- p_rangers_win_ny*(1 - p_bruins_win_boston)
+
+# Net winnings outcomes
+net_winnings <- c(bruins_win*2, bruins_win*2 + bruins_lose, bruins_win + bruins_lose*2, bruins_lose*2)
+
+# Probabilities of each Net winnings outcome
+p_outcomes <- c(p1, p2 + p3, p4 + p5, p6)
+
+# Theoretical probability distribution
+theoretical_dist <- data.frame(Net_Winnings = net_winnings, Probability = p_outcomes)
+
+# Expected value of net winnings
+expected_value <- sum(net_winnings * p_outcomes)
+
+# Theoretical standard deviation of net winnings
+theoretical_sd <- sqrt(sum((net_winnings - expected_value)^2 * p_outcomes))
+
+theoretical_dist
+expected_value
+theoretical_sd
+```
+
+\(iii\)  Create a simulation of 10,000 different 3 game series by using R to create 10,000 random values for X. Let these random values be denoted Y. Each Y value denotes an outcome of the series as defined by the probability distribution. These 10,000 outcomes represent a statistical sample of possible outcomes. Use this sample of outcomes to estimate the expected net win by using a 95% confidence interval. Does this confidence interval contain the theoretical E(X)?
+
+```{r}
+set.seed(345)
+
+# Set the number of simulations
+num_simulations <- 10000
+
+# Empty vector to store simulated net winnings
+simulated_net_winnings <- numeric(num_simulations)
+
+# Perform the simulation
+for (i in 1:num_simulations) {
+  # Generate a random outcome according to the probability distribution
+  outcome <- sample(net_winnings, size = 1, prob = p_outcomes, replace = TRUE)
+  simulated_net_winnings[i] <- outcome
+}
+
+simulated_df <- data.frame(Net_Winnings = as.numeric(simulated_net_winnings))
+
+# Calculate the frequency of each simulated outcome
+freq_y <- simulated_df |> group_by(Net_Winnings) |> summarise(count = n())
+
+# Calculate the probability of each outcome
+freq_y <- freq_y |> mutate(prob_y = count/sum(count))
+
+# Probability distribution of simulation sample
+freq_y <- freq_y |> mutate(Net_Winnings = sort(Net_Winnings, decreasing = TRUE))
+
+# Expected net win of the simulated outcomes
+expected_value_s <- sum(freq_y$Net_Winnings * freq_y$prob_y)
+
+expected_value_s
+
+# Set the significance level
+alpha <- 0.05
+
+# Calculate the sample size
+sample_size <- length(simulated_net_winnings)
+
+# Calculate the sample mean
+sample_mean <- mean(simulated_net_winnings)
+
+# Calculate the sample standard deviation
+sample_sd <- sd(simulated_net_winnings)
+
+# Calculate the standard error
+standard_error <- sample_sd / sqrt(sample_size)
+
+# Calculate the margin of error
+margin_of_error <- qt(1 - alpha / 2, df = sample_size - 1) * standard_error
+
+# Calculate the lower and upper bounds of the confidence interval
+lower_bound <- sample_mean - margin_of_error
+upper_bound <- sample_mean + margin_of_error
+
+# Check if the theoretical expected value is within the confidence interval
+is_theoretical_in_interval <- expected_value >= lower_bound && expected_value <= upper_bound
+
+# Print the confidence interval and the result
+cat("95% Confidence Interval:", lower_bound, "to", upper_bound, "\n")
+cat("Does the confidence interval contain the theoretical E(X)?", is_theoretical_in_interval)
+
+
+```
+
+(iv) Construct a frequency distribution for Y. Use the Chi-squared goodness of fit test to verify how closely the distribution of Y has estimated the distribution of X.
+
+```{r}
+# run chi-squared goodness of fit test
+results <- chisq.test(x = freq_y$count, p = p_outcomes)
+
+# print out p-value
+writeLines(paste('\nchi squared goodness of fit p-value:', results$p.value))
+```
+
+\(v\) Use your observations of parts (ii) and (iii) above to describe whether your betting strategy is favorable to you. Write a summary of your observations and analyses in the Word document.
+
+=\> Unfavorable
+
+## #Part 3:
+
+Repeat part 1 above but now assume that the series is a best-of-five series where the first team that wins three games wins the series with games alternating between Boston and New York, and with the first game played in Boston.
+
+```{r}
+# Series: Boston - NY - Boston - NY - Boston
+
+# The Bruins can win the series in the following outcomes
+## O1: W-W-W-
+## O2: W-W-L-W-
+## O3: W-W-L-L-W
+## O4: W-L-W-W-
+## O5: W-L-W-L-W
+## O6: W-L-L-W-W
+## O7: L-W-W-W
+## O8: L-W-W-L-W
+## O9: L-W-L-W-W
+## 10: L-L-W-W-W
+
+# Probability that the Bruins will win the series: when one of the 10 outcomes above occurs
+p1 <- p_bruins_win_boston*(1 - p_rangers_win_ny)*p_bruins_win_boston
+p2 <- p_bruins_win_boston*(1 - p_rangers_win_ny)*(1 - p_bruins_win_boston)*
+  (1 - p_rangers_win_ny)
+p3 <- p_bruins_win_boston*(1 - p_rangers_win_ny)*(1 - p_bruins_win_boston)*   p_rangers_win_ny*p_bruins_win_boston
+p4 <- p_bruins_win_boston*p_rangers_win_ny*p_bruins_win_boston*(1 -   p_rangers_win_ny)
+p5 <- p_bruins_win_boston*p_rangers_win_ny*p_bruins_win_boston*p_rangers_win_ny*p_bruins_win_boston
+p6 <- p_bruins_win_boston*p_rangers_win_ny*(1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)*p_bruins_win_boston
+p7 <- (1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)*p_bruins_win_boston*
+  (1 - p_rangers_win_ny)
+p8 <- (1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)*p_bruins_win_boston* p_rangers_win_ny*p_bruins_win_boston
+p9 <- (1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)*(1 - p_bruins_win_boston)*(1 - p_rangers_win_ny)*p_bruins_win_boston
+p10 <- (1 - p_bruins_win_boston)*p_rangers_win_ny*p_bruins_win_boston*(1 - p_rangers_win_ny)*p_bruins_win_boston
+
+p_bruins_win_series <- sum(p1:p10)
+
+p_bruins_win_series
+```
+
+\# I gave up on the other remaining parts T.T waiting for fancy formulas...
